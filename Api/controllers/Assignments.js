@@ -22,7 +22,7 @@ export async function getStudentAssignments(req, res) {
         
         // Récupère tous les devoirs de la classe de l'étudiant
         const allAssignments = await Assignment.find({ course: { $in: courseIds }, createdAt: { $gte: firstDay, $lte: lastDay }, }).populate("course", "name");
-        console.log(allAssignments)
+
         // Pour chaque devoir, garde uniquement la soumission de l'étudiant
         const filteredAssignments = allAssignments.map(assign => {
             const studentSubmission = assign.submission.find(s => s.student.toString() === studentId);
@@ -43,7 +43,6 @@ export async function getStudentAssignments(req, res) {
     }
 }
 
-// 👩‍🏫 Voir toutes les soumissions des devoirs pour un enseignant
 export const getSubmissionsByTeacher = async (req, res) => {
     try {
         const teacherId = req.cookies.teacher;
@@ -52,33 +51,61 @@ export const getSubmissionsByTeacher = async (req, res) => {
         const courses = await Course.find({ teacher: teacherId }, "_id");
         const courseIds = courses.map(c => c._id);
     
-        // 📥 Tous les devoirs des cours du prof
+        // 📥 Tous les devoirs avec soumissions
         const assignments = await Assignment.find({
             course: { $in: courseIds },
-            "submission.0": { $exists: true } // 👈 Vérifie que des soumissions existent
-        }).populate("submission.student", "firstName lastName");
+            "submission.0": { $exists: true }
+        }).populate({
+            path: "submission.student",
+            select: "firstName lastName email classe",
+            populate: {
+            path: "classe",
+            select: "name"
+            }
+        });
+        const filteredAssignments = assignments.map(assignment => ({
+            title: assignment.title,
+            content: assignment.description,
+            numberOfSubmissions: assignment.submission.length,
+            submission: assignment.submission.map(sub => ({
+            name: sub.student.firstName + " " + sub.student.lastName,
+            email: sub.student.email,
+            answer: sub.answer,
+            joinDate: sub.submittedAt,
+            id: sub.student._id,
+            class: sub.student.classe?.name || null
+            }))
+        }));
     
-        res.status(200).json(assignments);
+        res.status(200).json(filteredAssignments);
     } catch (err) {
         console.error("❌ Erreur soumissions prof :", err.message);
         res.status(500).json({ message: "Erreur serveur" });
     }
-}
+};
+
 
 // ➕ Créer un nouveau devoir
 export async function createAssignment(req, res) {
     try {
         const { title, description, dueDate, course } = req.body;
     
+        
+        const foundCourse = await Course.findOne({ title: course });
+    
+        if (!foundCourse) {
+            return res.status(404).json({ message: "Cours non trouvé" });
+        }
+    
         const newAssignment = new Assignment({
             title,
             description,
             dueDate,
-            course,
+            course: foundCourse._id, 
         });
     
         await newAssignment.save();
-        
+    
         res.status(201).json({ message: "📝 Devoir créé avec succès", assignment: newAssignment });
     } catch (error) {
         console.error("❌ Erreur lors de la création du devoir :", error);

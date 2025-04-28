@@ -6,10 +6,10 @@ import { Classe } from "../models/classe.js";
 export async function createClass(req, res) {
     try {
         const teacherId = req.cookies.teacher;
-        const { name, grade, students } = req.body;
+        const { name, students } = req.body;
 
         // 📛 Validation de base
-        if (!name || !grade || !teacherId) {
+        if (!name || !teacherId) {
             return res.status(400).json({ message: "🛑 Name, Grade et Teacher sont requis." });
         }
 
@@ -39,7 +39,6 @@ export async function createClass(req, res) {
         // ✅ Créer la classe
         const newClass = new Classe({
             name,
-            grade,
             teacher: teacherId,
             students
         });
@@ -118,26 +117,4 @@ export async function deleteClass(req, res) {
     }
 }
 
-// 👀 Voir toutes les classes d’un enseignant
-export async function getAllClasses(req, res) {
-    try {
-        const { teacherId } = req.query;
 
-        if (!teacherId) {
-        return res.status(400).json({ message: "❗ teacherId est requis dans la requête" });
-        }
-
-        const classes = await Classe.find({ teacher: teacherId })
-        .populate("students", "firstName lastName email")  // 👨‍🎓 Infos des étudiants
-        .populate("teacher", "firstName lastName email");   // 👩‍🏫 Infos de l’enseignant
-
-        res.status(200).json({
-        message: "✅ Classes récupérées avec succès",
-        classes,
-        });
-
-    } catch (error) {
-        console.error("❌ Erreur lors de la récupération des classes :", error);
-        res.status(500).json({ message: "Erreur serveur", error: error.message });
-    }
-}

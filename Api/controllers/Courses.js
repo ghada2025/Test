@@ -6,16 +6,18 @@ import { Teacher } from "../models/Teacher.js";
 // ➕ Créer un nouveau cours
 export async function createCourse(req, res) {
     try {
+        const teacherId = req.cookies.teacher;
         const {
         subject,
         title,
         description,
-        date,
+        startDate,
+        endDate,
         startTime,
         endTime,
+        content,
         color,
-        classe,    
-        teacher,   
+        classe,      
         videoUrl,
         } = req.body;
 
@@ -25,10 +27,7 @@ export async function createCourse(req, res) {
         return res.status(404).json({ message: "❌ Classe introuvable." });
         }
 
-        // 🔎 Trouver l’enseignant par son prénom + nom
-        const [firstName, ...lastNameParts] = teacher.split(" ");
-        const lastName = lastNameParts.join(" ");
-        const existingTeacher = await Teacher.findOne({ firstName, lastName });
+        const existingTeacher = await Teacher.findById(teacherId);
         if (!existingTeacher) {
         return res.status(404).json({ message: "❌ Enseignant introuvable." });
         }
@@ -38,9 +37,11 @@ export async function createCourse(req, res) {
         subject,
         title,
         description,
-        date,
+        startDate,
+        endDate,
         startTime,
         endTime,
+        content,
         color,
         classe: existingClass._id,
         teacher: existingTeacher._id,
@@ -67,7 +68,6 @@ export async function createCourse(req, res) {
 export async function getCoursesThisWeek(req, res) {
     try {
         const studentId = req.cookies.student; // 🍪 depuis les cookies
-        console.log(studentId)
         // 🔍 Trouver l'étudiant avec sa classe
         const student = await Student.findById(studentId).populate("classe");
         if (!student || !student.classe) {
@@ -84,9 +84,8 @@ export async function getCoursesThisWeek(req, res) {
         // 🔎 Recherche des cours de cette classe entre lundi et dimanche
         const courses = await Course.find({
             classe: student.classe, 
-            date: { $gte: firstDay, $lte: lastDay },
+            startDate: { $gte: firstDay, $lte: lastDay },
             }).populate("teacher", "firstName lastName")
-            .populate("classe", "name");
         res.json({
             message: "✅ Cours de cette semaine récupérés avec succès",
             courses
@@ -101,27 +100,26 @@ export async function getCoursesThisWeek(req, res) {
 // 📘 Obtenir tous les cours de cette semaine pour une classe et un sujet précis
 export async function getWeeklyCoursesBySubject(req, res) {
     try {
-        const studentId = req.cookies.student; // 🍪 depuis les cookies
-        const { id } = req.params; // 🔍 id du cours
+        const studentId = req.cookies.student;
+        const { id } = req.params;
 
-        //  Trouver la classe de l'étudiant
-        const studente = await Student.findById(studentId);
+        // 🔍 Récupérer l'étudiant
+        const student = await Student.findById(studentId);
         if (!student) return res.status(404).json({ message: "Étudiant introuvable" });
 
-        const classeId = studente.classe; // 🏫
+        const classeId = student.classe;
 
-        //  Trouver le cours pour récupérer le subject
+        // 🔍 Récupérer le cours
         const course = await Course.findById(id);
         if (!course) return res.status(404).json({ message: "Cours introuvable" });
 
-        const subject = course.subject; // 📚
-
+        const subject = course.subject;
 
         if (!classeId || !subject || !studentId) {
             return res.status(400).json({ message: "🚫 Les champs classeId, subject et studentId sont obligatoires" });
         }
 
-        // 🗓️ Début et fin de la semaine
+        // 🗓️ Début et fin de semaine
         const today = new Date();
         const firstDay = new Date(today.setDate(today.getDate() - today.getDay() + 1));
         firstDay.setHours(0, 0, 0, 0);
@@ -129,18 +127,14 @@ export async function getWeeklyCoursesBySubject(req, res) {
         lastDay.setDate(firstDay.getDate() + 6);
         lastDay.setHours(23, 59, 59, 999);
 
-        // 🔍 Tous les cours de la semaine (avec le quiz associé)
+        // 🔍 Chercher tous les cours de la semaine avec ce sujet
         const weeklyCourses = await Course.find({
             classe: classeId,
             subject,
-            date: { $gte: firstDay, $lte: lastDay }
+            startDate: { $gte: firstDay, $lte: lastDay }
         });
 
-        // 📘 Récupère l'étudiant
-        const student = await Student.findById(studentId);
-        if (!student) return res.status(404).json({ message: "Étudiant introuvable" });
-
-        // 🧹 Tri en deux tableaux
+        // 🧹 Séparation completed / incompleted
         const completedCoursesThisWeek = [];
         const incompletedCoursesThisWeek = [];
 
@@ -162,6 +156,7 @@ export async function getWeeklyCoursesBySubject(req, res) {
         res.status(500).json({ message: "Erreur serveur", error: err.message });
     }
 }
+
 
 // 📚 Obtenir un cours par son id
 export async function getOneCourse(req, res) {
@@ -185,18 +180,26 @@ export async function getOneCourse(req, res) {
 }
 
 // 📚 get all courses of a teacher
-export async function getCoursesByTeacher(req, res) {
+export async function getCoursesByTeacher(req, res) { 
     try {
         const teacherId = req.cookies.teacher; 
-    
-        const courses = await Course.find({ teacher: teacherId })
-            .populate("classe", "name")      
-            .populate("teacher", "firstName lastName")                
-        if (!courses) {
-            return res.status(404).json({ message: "Cours introuvable ❌" });
+
+        const courses = await Course.find({ teacher: teacherId });               
+        
+        if (courses.length === 0) {
+            return res.status(404).json({ message: "Cours introuvables ❌" });
         }
-    
-        res.status(200).json({ courses });
+
+        const simplifiedCourses = courses.map(course => ({
+            id: course._id,
+            subject: course.subject,
+            title: course.title,
+            description: course.description,
+            color: course.color
+        }));
+
+        res.status(200).json({ courses: simplifiedCourses });
+
     } catch (error) {
         console.error("❌ Erreur lors de la récupération des cours :", error);
         res.status(500).json({ message: "Erreur serveur" });
@@ -212,7 +215,8 @@ export async function updateCourse(req, res) {
             subject,
             title,
             description,
-            date,
+            startDate,
+            endDate,
             startTime,
             endTime,
             videoUrl,
@@ -227,7 +231,8 @@ export async function updateCourse(req, res) {
             subject,
             title,
             description,
-            date,
+            startDate,
+            endDate,
             startTime,
             endTime,
             videoUrl,

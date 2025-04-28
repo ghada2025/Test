@@ -11,6 +11,7 @@ import { courseRouter } from "./routers/Courses.js";
 import { eventRouter } from "./routers/Events.js";
 import { quizRouter } from "./routers/Quizs.js";
 import { assignmentRouter } from "./routers/Assignments.js";
+import { contactRouter } from "./routers/contacts.js";
 
 
 const app = express();
@@ -26,7 +27,6 @@ app.use(cors(
     {
         origin: "http://localhost:3000",
         credentials: true,
-        optionsSuccessStatus: 200,
     }
 ));
 
@@ -44,6 +44,7 @@ app.use("/teacher", teacherRouter);
 app.use("/event", eventRouter);
 app.use("/quiz", quizRouter);
 app.use("/assignment", assignmentRouter);
+app.use("/contact", contactRouter);
 
 // 🏓 Route de test pour vérifier si le serveur fonctionne
 app.get("/ping", (req, res) => {

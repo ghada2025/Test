@@ -78,7 +78,6 @@ export async function getEvents(req, res) {
         const today = new Date();
         const after15Days = new Date();
         after15Days.setDate(today.getDate() + 15);
-
         const events = await Event.find({
         startDate: { $gte: today, $lte: after15Days }
         });

@@ -3,7 +3,8 @@ import {
     registerTeacher,    // ✍️ Enregistrement d'un teacher 
     loginTeacher,       // 🔑 Connexion d'un teacher
     getMyProfile,
-    getTeacherClasses,       // 👤 Récupération du profil 
+    getTeacherClasses,
+    getTeacherStats,       // 👤 Récupération du profil 
 } from "../controllers/Teachers.js";
 
 const router = express.Router();
@@ -11,6 +12,7 @@ const router = express.Router();
 router.post("/register", registerTeacher);// ✍️ 
 router.post("/login", loginTeacher);// 🔑 
 router.get("/me", getMyProfile);// 👤 
-router.get("/classe/:teacherId" , getTeacherClasses) // ✅  récupérer les classes d'un enseignant 
+router.get("/classe" , getTeacherClasses) // ✅  récupérer les classes d'un enseignant 
+router.get("/stats" , getTeacherStats)
 
 export { router as teacherRouter };

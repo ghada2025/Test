@@ -1,6 +1,10 @@
 import bcrypt from "bcrypt";
 import { Teacher } from "../models/Teacher.js";
 import { Classe } from "../models/classe.js";
+import { Student } from "../models/Student.js";
+import { Assignment } from "../models/Assignment.js";
+import { Quiz } from "../models/Quiz.js";
+import { Course } from "../models/Course.js";
 
 const MILLISECONDS_IN_A_DAY = 1000 * 60 * 60 * 24;
 
@@ -75,13 +79,13 @@ export async function loginTeacher(req, res) {
         if (!passwordMatch) {
             return res.status(400).json({ message: "Email ou mot de passe invalide ❌" });
         }
-
+        res.clearCookie('student' , { path: '/' , httpOnly: true });
         // 🍪 Création du cookie de session
         const options = {
             maxAge: MILLISECONDS_IN_A_DAY * 14, // 📅 14 jours
             httpOnly: true, // 🔒 sécurité
+            path: '/',
         };
-
         res.cookie("teacher", teacher.id, options); // ✅ cookie envoyé
         res.json({ teacher }); // 🏁 Succès
 
@@ -91,16 +95,62 @@ export async function loginTeacher(req, res) {
     }
 }
 
-// ✅ Contrôleur pour récupérer les classes d'un enseignant
+// ✅ Contrôleur pour récupérer les classes d'un enseignant avec pourcentage
 export async function getTeacherClasses(req, res) {
     try {
-        const { teacherId } = req.params;
+        const teacherId = req.cookies.teacher; //  📦 Récupérer l'ID de l'enseignant via cookie
 
-        const classes = await Classe.find({ teacher: teacherId }).populate("students", "firstName lastName email"); 
+        const classes = await Classe.find({ teacher: teacherId }).populate("students", "firstName lastName email");
 
-        res.status(200).json(classes);
+        const simplifiedClasses = classes.map(classe => {
+            const numberOfStudents = classe.students.length;
+            const maxStudents = 40;
+            const percentage = Math.round((numberOfStudents / maxStudents) * 100);
+
+            return {
+                name: classe.name,
+                students: numberOfStudents,
+                value: percentage
+            };
+        });
+
+        res.status(200).json(simplifiedClasses);
     } catch (error) {
         console.error("❌ Erreur lors de la récupération des classes du professeur :", error);
         res.status(500).json({ message: "Erreur serveur" });
+    }
+}
+
+export async function getTeacherStats(req, res) {
+    try{
+        const teacherId = req.cookies.teacher;
+
+        if (!teacherId) {
+            return res.status(401).json({ message: "Enseignant non authentifié" });
+        }
+
+        const classes = await Classe.find({ teacher: teacherId });
+        const classIds = classes.map(cls => cls._id);
+        const numberOfClasses = classes.length;
+
+        const totalStudents = await Student.countDocuments({ classe: { $in: classIds } });
+
+        const teacherCourses1 = await Course.find({ teacher: teacherId }).select('_id');
+        const courseIds = teacherCourses1.map(course => course._id);
+        const totalAssignments = await Assignment.countDocuments({ course: { $in: courseIds } });
+
+        const teacherCourses2 = await Course.find({ teacher: teacherId, quiz: { $ne: null } });
+        const totalQuizzes = teacherCourses2.length;
+
+
+        res.status(200).json({
+            numberOfClasses,
+            totalStudents,
+            totalAssignments,
+            totalQuizzes,
+        });
+
+    } catch (error ){
+        res.status(500).json({ message: "Erreur lors du chargement des statistiques", error });
     }
 }

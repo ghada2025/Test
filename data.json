@@ -1,0 +1,18 @@
+[
+  {
+    "firstName": "Amine",
+    "lastName": "Cherif",
+    "email": "amine.cherif@example.com",
+    "password": "$2b$10$GpLF4pNmpJlKT0j4z0rNcXckLJX7e7YOoQnz9.V5WfNlZxIcKbfV6",
+    "createdAt": "2025-04-27T13:35:12.230+00:00",
+    "updatedAt": "2025-04-27T13:35:12.230+00:00"
+  },
+  {
+    "firstName": "Omar",
+    "lastName": "Mansouri",
+    "email": "omar.mansouri@example.com",
+    "password": "$2b$10$9r4gG9vZlJXzwg9BdldM4o2t4VKnGiLXeWbpPTzFclc7Uk0B4zM3m",
+    "createdAt": "2025-04-27T13:40:22.350+00:00",
+    "updatedAt": "2025-04-27T13:40:22.350+00:00"
+  }
+]
